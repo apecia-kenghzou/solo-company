@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { Search, Download, Users, Flame, Calendar, DollarSign, Eye } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -57,8 +57,8 @@ export default function LeadsPage() {
     queryKey: ['leads', { status: statusFilter, search: searchQuery, page }],
     queryFn: () =>
       api.leads.list({ status: statusFilter || undefined, search: searchQuery || undefined, page }),
-    keepPreviousData: true,
-  } as Parameters<typeof useQuery>[0]);
+    placeholderData: keepPreviousData,
+  });
 
   const leads = data?.items ?? [];
   const total = data?.total ?? 0;

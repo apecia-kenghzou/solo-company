@@ -80,7 +80,7 @@ export default function DashboardPage() {
     queryKey: ['approvals'],
     queryFn: () => api.approvals.list(),
     refetchInterval: 30_000,
-    select: (data) => data.filter((d) => d.status === 'pending').slice(0, 5),
+    select: (data: ContentDraft[]) => data.filter((d) => d.status === 'pending').slice(0, 5),
   });
 
   // ── Mutations ──

@@ -39,16 +39,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     useAppStore();
 
   // Fetch pending approval count every 60s
-  useQuery({
+  const { data: approvalCount } = useQuery({
     queryKey: ['approvals-count'],
     queryFn: async () => {
       const drafts = await api.approvals.list();
-      const count = drafts.filter((d) => d.status === 'pending').length;
-      setPendingApprovals(count);
-      return count;
+      return drafts.filter((d) => d.status === 'pending').length;
     },
     refetchInterval: 60_000,
   });
+
+  React.useEffect(() => {
+    if (approvalCount !== undefined) {
+      setPendingApprovals(approvalCount);
+    }
+  }, [approvalCount, setPendingApprovals]);
 
   // Close sidebar on mobile when navigating
   React.useEffect(() => {

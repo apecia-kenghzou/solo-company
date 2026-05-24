@@ -48,14 +48,17 @@ export function AgentActivityFeed() {
   const bottomRef = React.useRef<HTMLDivElement>(null);
 
   // Initial fetch
-  useQuery({
+  const { data: actionsData } = useQuery({
     queryKey: ['agent-actions'],
     queryFn: () => api.agents.getActions({ limit: 20 }),
-    onSuccess: (data: { items: AgentAction[] }) => {
-      setAgentActions(data.items);
-    },
     refetchInterval: 30_000,
-  } as Parameters<typeof useQuery>[0]);
+  });
+
+  React.useEffect(() => {
+    if (actionsData?.items) {
+      setAgentActions(actionsData.items);
+    }
+  }, [actionsData, setAgentActions]);
 
   // Socket connection
   React.useEffect(() => {
