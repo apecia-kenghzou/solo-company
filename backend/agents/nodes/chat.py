@@ -107,6 +107,19 @@ def chat_node(state: FrontDeskState) -> dict:
     property_interest = lead_data.get("property_interest", "")
 
     # ------------------------------------------------------------------
+    # Mark message as read immediately — shows blue ticks to the lead
+    # ------------------------------------------------------------------
+    inbound_msg_id = lead_data.get("whatsapp_message_id", "")
+    if inbound_msg_id and state.get("channel") == "whatsapp":
+        try:
+            import asyncio
+            from tools.whatsapp import whatsapp
+            phone_number_id = lead_data.get("whatsapp_phone_number_id")
+            asyncio.run(whatsapp.mark_read(inbound_msg_id, phone_number_id=phone_number_id))
+        except Exception as exc:
+            logger.warning("chat_node: mark_read failed (non-fatal): %s", exc)
+
+    # ------------------------------------------------------------------
     # Quick keyword pre-checks (avoids unnecessary LLM calls for clear cases)
     # ------------------------------------------------------------------
     quick_escalate = _keyword_check(inbound, _ESCALATION_KEYWORDS)

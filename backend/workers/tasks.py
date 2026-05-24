@@ -646,17 +646,117 @@ def process_inbound_email(self, user_id: str, message_id: str) -> dict:
 
 @celery_app.task(name="workers.tasks.process_whatsapp_message", bind=True, max_retries=3)
 def process_whatsapp_message(self, user_id: str, message_data: dict) -> dict:
-    """Process an inbound WhatsApp message through the InboxAgent.
+    """Process an inbound WhatsApp message through the Front Desk LangGraph.
+
+    1. Extracts text content from the Meta Cloud API message payload.
+    2. Looks up the lead by phone number (creates one if new).
+    3. Routes through the FrontDeskGraph (intake → chat/email_reply → booking/escalation).
 
     Args:
         user_id: Platform user ID.
-        message_data: Parsed WhatsApp message payload.
+        message_data: Meta Cloud API ``messages[0]`` object from the webhook.
     """
+    from tools.whatsapp import WhatsAppTool
+    from sqlalchemy import select
+    from models.lead import Lead
+
+    from_number = message_data.get("from", "")
+    msg_type = message_data.get("type", "unknown")
+    msg_id = message_data.get("id", "")
+
     log.info(
         "inbox.whatsapp_received",
         user_id=user_id,
-        from_=message_data.get("from", ""),
-        type_=message_data.get("type", ""),
+        from_=from_number,
+        type_=msg_type,
+        msg_id=msg_id,
     )
-    # TODO: route through InboxAgent graph node (M3)
-    return {"status": "received", "user_id": user_id}
+
+    # ── Extract human-readable text from any message type ────────────────
+    text_body = WhatsAppTool.extract_text_body(message_data)
+
+    if not text_body:
+        log.info("inbox.whatsapp_received.empty_body — skipping", msg_type=msg_type)
+        return {"status": "skipped", "reason": "empty_body"}
+
+    # ── Look up or create lead ────────────────────────────────────────────
+    session = _get_sync_session()
+    try:
+        result = session.execute(
+            select(Lead).where(
+                Lead.user_id == UUID(user_id),
+                Lead.phone == from_number,
+            )
+        )
+        lead = result.scalar_one_or_none()
+
+        if lead is None:
+            lead = Lead(
+                user_id=UUID(user_id),
+                phone=from_number,
+                source="whatsapp",
+                status="new",
+                temperature="cold",
+                conversation_history=[],
+            )
+            session.add(lead)
+            session.commit()
+            session.refresh(lead)
+            log.info("inbox.whatsapp.new_lead_created", lead_id=str(lead.id), phone=from_number)
+
+        lead_id = str(lead.id)
+        lead_data = {
+            "name": lead.name or "",
+            "phone": lead.phone or "",
+            "email": lead.email or "",
+            "property_interest": lead.property_type_interest or "",
+            "budget_min": str(lead.budget_min or ""),
+            "budget_max": str(lead.budget_max or ""),
+            "timeline": lead.timeline or "",
+            "follow_up_count": lead.follow_up_count,
+            "conversation_history": lead.conversation_history or [],
+            "whatsapp_message_id": msg_id,  # for mark_read in chat node
+        }
+    finally:
+        session.close()
+
+    # ── Route through FrontDeskGraph ──────────────────────────────────────
+    try:
+        from agents.graphs.front_desk import front_desk_graph
+
+        initial_state = {
+            "user_id": user_id,
+            "lead_id": lead_id,
+            "listing_id": lead_data.get("listing_id"),
+            "inbound_message": text_body,
+            "channel": "whatsapp",
+            "lead_data": lead_data,
+            "classification": "",
+            "kb_context": "",
+            "draft_reply": "",
+            "reply_sent": False,
+            "escalate": False,
+            "escalation_reason": "",
+            "follow_up_scheduled": False,
+            "viewing_booked": False,
+            "messages": [],
+        }
+
+        result_state = front_desk_graph.invoke(initial_state)
+        log.info(
+            "inbox.whatsapp.graph_complete",
+            user_id=user_id,
+            lead_id=lead_id,
+            reply_sent=result_state.get("reply_sent"),
+            escalated=result_state.get("escalate"),
+        )
+        return {
+            "status": "processed",
+            "lead_id": lead_id,
+            "reply_sent": result_state.get("reply_sent"),
+            "escalated": result_state.get("escalate"),
+        }
+
+    except Exception as exc:
+        log.error("inbox.whatsapp.graph_error", user_id=user_id, lead_id=lead_id, error=str(exc))
+        raise self.retry(exc=exc, countdown=30)

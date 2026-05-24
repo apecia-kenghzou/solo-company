@@ -63,11 +63,34 @@ _DEFAULT_TEMPLATE = {
 }
 
 
+async def _send_whatsapp_async(phone: str, message: str) -> bool:
+    """Send a WhatsApp message via the WhatsAppTool (Meta Cloud API / 360dialog)."""
+    try:
+        from tools.whatsapp import whatsapp
+        await whatsapp.send_text(to=phone, body=message)
+        logger.info("whatsapp_followup_node: sent to=%s chars=%d", phone, len(message))
+        return True
+    except Exception as exc:
+        logger.error("whatsapp_followup_node: send failed: %s", exc)
+        return False
+
+
 def _send_whatsapp(phone: str, message: str) -> bool:
-    """Stub for WhatsApp send — real implementation calls 360dialog API."""
-    logger.info("WhatsApp send stub: to=%s msg_len=%d", phone, len(message))
-    # In production: calls backend.tools.whatsapp_tool.send_message(phone, message)
-    return True
+    """Sync wrapper around the async WhatsApp send — safe to call from Celery workers."""
+    import asyncio
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            # Inside an already-running event loop (e.g. FastAPI background task)
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as pool:
+                future = pool.submit(asyncio.run, _send_whatsapp_async(phone, message))
+                return future.result()
+        else:
+            return loop.run_until_complete(_send_whatsapp_async(phone, message))
+    except Exception as exc:
+        logger.error("whatsapp_followup_node._send_whatsapp: %s", exc)
+        return False
 
 
 def _update_lead_next_followup(lead_id: str, next_at: datetime) -> None:

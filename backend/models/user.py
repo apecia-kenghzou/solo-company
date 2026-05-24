@@ -42,6 +42,20 @@ class User(Base, TimestampMixin):
 
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
+    # WhatsApp Business — phone_number_id from Meta Cloud API metadata
+    # Used to route inbound webhooks to the correct user.
+    # Format: the numeric ID shown in Meta Business Manager, e.g. "123456789012345"
+    whatsapp_phone_number_id: Mapped[Optional[str]] = mapped_column(
+        String(64), nullable=True, index=True, unique=True
+    )
+    # The display number shown to leads (E.164 format, e.g. "+60123456789")
+    whatsapp_display_number: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
+
+    # Gmail — the OAuth-connected address used for Push/Sub routing
+    gmail_address: Mapped[Optional[str]] = mapped_column(
+        String(320), nullable=True, index=True
+    )
+
     # Billing
     stripe_customer_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     plan: Mapped[str] = mapped_column(String(64), nullable=False, default="starter")
