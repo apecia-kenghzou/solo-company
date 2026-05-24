@@ -6,7 +6,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Optional
 
-from backend.knowledge.pinecone_store import PineconeStore
+from knowledge.pinecone_store import PineconeStore
 
 logger = logging.getLogger(__name__)
 
@@ -352,6 +352,59 @@ class KBWriter:
             },
         )
         logger.info("Written lead insight for lead %s, user %s", lead_id, user_id)
+
+    # ------------------------------------------------------------------
+    # Convenience wrappers used by Celery tasks
+    # ------------------------------------------------------------------
+
+    async def index_listing(self, listing) -> None:
+        """Index a SQLAlchemy Listing ORM object into the KB.
+
+        Converts the ORM object to a dict and delegates to ``write_listing``.
+        Requires the listing to have a non-null ``user_id`` attribute.
+        """
+        listing_dict = {
+            "id": str(listing.id),
+            "name": listing.name or "",
+            "address": listing.address or "",
+            "property_type": listing.property_type or "",
+            "tenure": listing.tenure or "",
+            "developer": listing.developer or "",
+            "price_min": str(listing.price_min) if listing.price_min else "",
+            "price_max": str(listing.price_max) if listing.price_max else "",
+            "price_psf": str(listing.price_psf) if listing.price_psf else "",
+            "bedrooms": listing.bedrooms,
+            "bathrooms": listing.bathrooms,
+            "built_up": str(listing.built_up) if listing.built_up else "",
+            "land_area": str(listing.land_area) if listing.land_area else "",
+            "facilities": listing.facilities or [],
+            "selling_points": listing.selling_points or [],
+            "nearby_amenities": listing.nearby_amenities or {},
+            "target_buyer": listing.target_buyer or "",
+            "investment_potential": listing.investment_potential or "",
+        }
+        await self.write_listing(user_id=str(listing.user_id), listing=listing_dict)
+
+    async def index_document(
+        self,
+        doc_id: str,
+        text: str,
+        metadata: dict,
+        namespace: str = "default",
+    ) -> None:
+        """Index an arbitrary text document into a named namespace.
+
+        Args:
+            doc_id: Unique identifier for the document vector.
+            text: Text content to embed.
+            metadata: Metadata dict stored alongside the vector.
+            namespace: Pinecone namespace to upsert into.
+        """
+        from knowledge.pinecone_store import PineconeStore
+
+        store = PineconeStore(namespace=namespace)
+        await store.upsert(doc_id=doc_id, text=text, metadata=metadata)
+        logger.info("Indexed document '%s' into namespace '%s'", doc_id, namespace)
 
     # ------------------------------------------------------------------
     # Query

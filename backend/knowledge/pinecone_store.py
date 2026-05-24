@@ -7,8 +7,8 @@ from typing import Optional
 
 from pinecone import Pinecone, ServerlessSpec
 
-from backend.config.settings import settings
-from backend.knowledge.embeddings import embed_text, embed_batch
+from config.settings import settings
+from knowledge.embeddings import embed_text, embed_batch
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +38,23 @@ def _get_index():
         )
 
     return pc.Index(index_name)
+
+
+def init_pinecone() -> None:
+    """Initialise Pinecone connection at application startup.
+
+    Validates credentials and ensures the index exists.
+    Raises an exception if the API key is not configured.
+    """
+    if not settings.pinecone_api_key:
+        raise ValueError("PINECONE_API_KEY is not set — skipping Pinecone init")
+    _get_index()
+    logger.info("Pinecone index '%s' ready", settings.pinecone_index_name)
+
+
+def get_pinecone_index():
+    """Return the Pinecone index object (used by health checks)."""
+    return _get_index()
 
 
 class PineconeStore:

@@ -1,6 +1,6 @@
 """Embedding utilities using OpenAI text-embedding-3-large."""
 from openai import AsyncOpenAI
-from backend.config.settings import settings
+from config.settings import settings
 
 client = AsyncOpenAI(api_key=settings.openai_api_key)
 
