@@ -1,0 +1,127 @@
+vertical: consultant
+display_name: "Freelance Consultant"
+
+inbox_agent:
+  tone: "expert, concise, value-driven"
+  priorities:
+    - project inquiries
+    - proposal requests
+    - retainer renewals
+  auto_reply: true
+  escalate_keywords:
+    - "urgent"
+    - "deadline"
+    - "cancel"
+    - "terminate"
+    - "unhappy"
+    - "refund"
+    - "scope creep"
+    - "overdue"
+    - "escalate"
+
+follow_up_agent:
+  sequences:
+    cold_lead:         [2, 5, 14, 30]
+    proposal_sent:     [3, 7, 14]
+    retainer_renewal:  [30, 14, 7, 3]
+    post_project:      [7, 30, 90]
+  context_fields:
+    - industry
+    - company_size
+    - project_type
+    - estimated_budget
+    - timeline
+    - decision_maker
+    - pain_points
+    - previous_work
+
+research_agent:
+  sources:
+    - tavily_search
+    - linkedin_insights
+    - industry_reports
+    - company_news
+  output_format: client_brief
+  schedule: on_demand
+
+social_trend_agent:
+  platforms:
+    - linkedin
+    - twitter
+  topics:
+    - "thought leadership"
+    - "consulting trends"
+    - "business strategy"
+    - "industry insights"
+    - "case studies"
+    - "productivity tips"
+    - "freelance business"
+  schedule: daily
+
+marketing_agent:
+  platforms:
+    - linkedin
+    - twitter
+    - email_newsletter
+  post_frequency: 4_per_week
+  content_mix:
+    thought_leadership: 40
+    case_studies: 25
+    industry_insights: 25
+    personal_brand: 10
+
+admin_agent:
+  documents:
+    - nda
+    - consulting_agreement
+    - proposal
+    - invoice
+    - statement_of_work
+    - change_order
+  integrations:
+    - google_calendar
+    - notion
+    - harvest
+
+briefing_agent:
+  schedule: "08:00"
+  timezone: "Asia/Kuala_Lumpur"
+  sections:
+    - new_inquiries
+    - project_deadlines
+    - invoices_due
+    - pending_approvals
+    - content_calendar
+    - client_check_ins_today
+
+kb_fields:
+  company:
+    - name
+    - owner_name
+    - specializations
+    - brand_voice
+    - contact_number
+    - website
+    - linkedin_url
+    - social_handles
+    - hourly_rate
+    - retainer_packages
+    - case_study_summaries
+  services:
+    - service_name
+    - description
+    - deliverables
+    - typical_duration
+    - pricing_model
+    - ideal_client
+    - outcomes_achieved
+  business_rules:
+    - discovery_call_process
+    - proposal_turnaround
+    - payment_terms
+    - revision_policy
+    - out_of_scope_triggers
+    - escalate_triggers
+    - preferred_channels
+    - availability_hours
+    - compliance_notes

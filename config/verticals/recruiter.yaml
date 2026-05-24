@@ -1,0 +1,155 @@
+vertical: recruiter
+display_name: "Independent Recruiter"
+
+inbox_agent:
+  tone: "personable, professional, results-focused"
+  priorities:
+    - candidate applications
+    - client hiring briefs
+    - placement follow-ups
+  auto_reply: true
+  escalate_keywords:
+    - "urgent"
+    - "immediate"
+    - "offer declined"
+    - "counter offer"
+    - "withdraw"
+    - "unhappy"
+    - "not a fit"
+    - "escalate"
+    - "cancel"
+    - "terminate"
+
+follow_up_agent:
+  sequences:
+    cold_candidate:       [2, 5, 14]
+    active_candidate:     [1, 3, 7]
+    post_interview:       [1, 3]
+    post_placement:       [7, 30, 90]
+    client_check_in:      [7, 14, 30]
+    open_brief:           [3, 7, 14]
+  context_fields:
+    - current_role
+    - target_role
+    - notice_period
+    - salary_expectation
+    - location_preference
+    - availability
+    - skills
+    - industry_experience
+    - motivation_for_change
+
+research_agent:
+  sources:
+    - tavily_search
+    - linkedin_insights
+    - job_market_data
+    - company_news
+    - salary_benchmarks
+  output_format: talent_brief
+  schedule: weekly
+
+social_trend_agent:
+  platforms:
+    - linkedin
+    - tiktok
+    - instagram
+  topics:
+    - "hiring tips"
+    - "talent insights"
+    - "job market trends"
+    - "career advice"
+    - "interview tips"
+    - "employer branding"
+    - "future of work"
+    - "salary benchmarks"
+  schedule: daily
+
+marketing_agent:
+  platforms:
+    - linkedin
+    - instagram
+    - whatsapp_broadcast
+  post_frequency: 4_per_week
+  content_mix:
+    hiring_tips: 35
+    talent_insights: 30
+    job_market_trends: 25
+    personal_brand: 10
+
+admin_agent:
+  documents:
+    - placement_agreement
+    - candidate_profile
+    - offer_letter
+    - terms_of_business
+    - interview_confirmation
+    - reference_check_template
+  integrations:
+    - google_calendar
+    - linkedin_recruiter
+    - docusign
+
+briefing_agent:
+  schedule: "07:30"
+  timezone: "Asia/Kuala_Lumpur"
+  sections:
+    - new_candidates
+    - open_briefs
+    - pending_placements
+    - follow_ups_due
+    - interviews_today
+    - pending_approvals
+    - offers_in_progress
+
+kb_fields:
+  company:
+    - name
+    - owner_name
+    - specializations
+    - brand_voice
+    - contact_number
+    - website
+    - linkedin_url
+    - social_handles
+    - fee_structure
+    - guarantee_period
+  candidate:
+    - full_name
+    - current_role
+    - current_company
+    - industry
+    - years_experience
+    - key_skills
+    - education
+    - salary_current
+    - salary_expectation
+    - notice_period
+    - location
+    - availability
+    - motivation
+    - references
+    - status
+  client_brief:
+    - company_name
+    - role_title
+    - department
+    - seniority_level
+    - location
+    - salary_range
+    - key_requirements
+    - nice_to_have
+    - culture_notes
+    - hiring_manager
+    - target_start_date
+    - interview_process
+  business_rules:
+    - sourcing_process
+    - candidate_screening_criteria
+    - fee_terms
+    - replacement_policy
+    - escalate_triggers
+    - preferred_channels
+    - availability_hours
+    - compliance_notes
+    - exclusivity_terms
