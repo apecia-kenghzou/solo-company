@@ -133,12 +133,18 @@ from api.leads import router as leads_router
 from api.listings import router as listings_router
 from api.agents import router as agents_router
 from api.webhooks import router as webhooks_router
+from api import approvals, content, dashboard
+from api import settings as settings_router
 
 app.include_router(health_router, prefix="/api")
 app.include_router(leads_router, prefix="/api/leads", tags=["leads"])
 app.include_router(listings_router, prefix="/api/listings", tags=["listings"])
 app.include_router(agents_router, prefix="/api/agents", tags=["agents"])
 app.include_router(webhooks_router, prefix="/api/webhooks", tags=["webhooks"])
+app.include_router(settings_router.router, prefix="/api/settings", tags=["settings"])
+app.include_router(dashboard.router, prefix="/api/dashboard", tags=["dashboard"])
+app.include_router(approvals.router, prefix="/api/approvals", tags=["approvals"])
+app.include_router(content.router, prefix="/api/content", tags=["content"])
 
 
 # ---------------------------------------------------------------------------

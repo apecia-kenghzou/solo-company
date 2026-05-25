@@ -610,6 +610,54 @@ def run_property_research(self, listing_id: str) -> dict:
         session.close()
 
 
+@celery_app.task(name="workers.tasks.run_marketing_week", bind=True, max_retries=3)
+def run_marketing_week(self, user_id: str) -> dict:
+    """Run the full marketing graph to generate a week of content drafts."""
+    try:
+        from agents.graphs.marketing import marketing_graph
+        from models.user import User
+        from sqlalchemy import select
+        import asyncio
+
+        session = _get_sync_session()
+        user = session.execute(select(User).where(User.id == UUID(user_id))).scalar_one_or_none()
+        session.close()
+        if not user:
+            return {"error": "user_not_found"}
+
+        # Load trend data from KB
+        # Run for each active listing
+        from models.listing import Listing
+        session = _get_sync_session()
+        listings = session.execute(
+            select(Listing).where(Listing.user_id == UUID(user_id), Listing.status == "active")
+        ).scalars().all()
+        listing_data = [{"id": str(l.id), "name": l.name, "address": l.address} for l in listings]
+        session.close()
+
+        initial_state = {
+            "user_id": user_id,
+            "listing_id": listing_data[0]["id"] if listing_data else None,
+            "trend_data": [],
+            "content_plan": [],
+            "current_post": {},
+            "caption": "",
+            "image_url": None,
+            "hashtags": [],
+            "scheduled": False,
+            "approval_required": True,
+            "draft_id": None,
+            "messages": [],
+        }
+
+        marketing_graph.invoke(initial_state)
+        return {"status": "complete", "user_id": user_id}
+
+    except Exception as exc:
+        log.error("run_marketing_week.error", user_id=user_id, error=str(exc))
+        raise self.retry(exc=exc, countdown=60)
+
+
 # ---------------------------------------------------------------------------
 # Webhook-triggered tasks (dispatched from API routers)
 # ---------------------------------------------------------------------------

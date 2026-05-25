@@ -14,6 +14,8 @@ from api.deps import get_current_user, get_db
 from models.content import AgentAction, ContentDraft
 from models.user import User
 
+# ContentDraft is imported for use in the status endpoint pending-approval count.
+
 log = logging.getLogger(__name__)
 router = APIRouter()
 
@@ -70,14 +72,6 @@ class PaginatedActions(BaseModel):
     total: int
     page: int
     page_size: int
-
-
-class ApprovalRequest(BaseModel):
-    notes: Optional[str] = None
-
-
-class RejectionRequest(BaseModel):
-    notes: str
 
 
 class TriggerMarketingRequest(BaseModel):
@@ -278,127 +272,3 @@ async def list_agent_actions(
     )
 
 
-@router.post("/approvals/{action_id}/approve")
-async def approve_action(
-    action_id: uuid.UUID,
-    body: ApprovalRequest,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-) -> Dict[str, Any]:
-    """Approve a pending agent action (e.g. approve a content draft for publishing).
-
-    If the action_id corresponds to a ContentDraft, its status is updated to
-    ``approved``. The agent will then schedule it via Buffer.
-    """
-    action = await _get_action_or_404(db, action_id, current_user.id)
-
-    if action.status != "pending_approval":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Action is not pending approval (current status: {action.status})",
-        )
-
-    action.status = "success"
-    if body.notes:
-        output = dict(action.output_data or {})
-        output["approval_notes"] = body.notes
-        action.output_data = output
-
-    # If there's a linked ContentDraft, approve that too
-    draft_id = (action.output_data or {}).get("content_draft_id")
-    draft_updated = False
-    if draft_id:
-        draft_result = await db.execute(
-            select(ContentDraft).where(
-                ContentDraft.id == uuid.UUID(draft_id),
-                ContentDraft.user_id == current_user.id,
-            )
-        )
-        draft = draft_result.scalar_one_or_none()
-        if draft:
-            draft.status = "approved"
-            draft.approval_notes = body.notes
-            draft_updated = True
-
-    await db.commit()
-    log.info("agents.action_approved", action_id=str(action_id), draft_updated=draft_updated)
-
-    return {
-        "approved": True,
-        "action_id": str(action_id),
-        "draft_updated": draft_updated,
-    }
-
-
-@router.post("/approvals/{action_id}/reject")
-async def reject_action(
-    action_id: uuid.UUID,
-    body: RejectionRequest,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-) -> Dict[str, Any]:
-    """Reject a pending agent action with a reason.
-
-    Updates the action status to ``failed`` and any linked ContentDraft
-    to ``rejected``.
-    """
-    action = await _get_action_or_404(db, action_id, current_user.id)
-
-    if action.status != "pending_approval":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Action is not pending approval (current status: {action.status})",
-        )
-
-    action.status = "failed"
-    action.error_message = f"Rejected by user: {body.notes}"
-
-    # Reject linked ContentDraft if present
-    draft_id = (action.output_data or {}).get("content_draft_id")
-    draft_updated = False
-    if draft_id:
-        draft_result = await db.execute(
-            select(ContentDraft).where(
-                ContentDraft.id == uuid.UUID(draft_id),
-                ContentDraft.user_id == current_user.id,
-            )
-        )
-        draft = draft_result.scalar_one_or_none()
-        if draft:
-            draft.status = "rejected"
-            draft.approval_notes = body.notes
-            draft_updated = True
-
-    await db.commit()
-    log.info("agents.action_rejected", action_id=str(action_id), reason=body.notes)
-
-    return {
-        "rejected": True,
-        "action_id": str(action_id),
-        "reason": body.notes,
-        "draft_updated": draft_updated,
-    }
-
-
-# ---------------------------------------------------------------------------
-# Internal helpers
-# ---------------------------------------------------------------------------
-
-async def _get_action_or_404(
-    db: AsyncSession,
-    action_id: uuid.UUID,
-    user_id: uuid.UUID,
-) -> AgentAction:
-    result = await db.execute(
-        select(AgentAction).where(
-            AgentAction.id == action_id,
-            AgentAction.user_id == user_id,
-        )
-    )
-    action = result.scalar_one_or_none()
-    if not action:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"AgentAction {action_id} not found",
-        )
-    return action
