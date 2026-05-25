@@ -87,6 +87,19 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     except Exception as exc:  # pragma: no cover
         log.warning("startup.pinecone_skipped", reason=str(exc))
 
+    # --- Object storage (MinIO / Garage / S3) ---
+    # ensure_bucket() is a no-op if the bucket already exists; safe on every boot.
+    try:
+        from tools.s3 import storage
+        await storage.ensure_bucket()
+        log.info(
+            "startup.storage_ready",
+            provider=settings.s3_provider,
+            bucket=settings.s3_bucket_name,
+        )
+    except Exception as exc:  # pragma: no cover
+        log.warning("startup.storage_skipped", reason=str(exc))
+
     log.info("startup.complete", version="0.1.0")
     yield
 

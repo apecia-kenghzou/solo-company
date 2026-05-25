@@ -33,12 +33,26 @@ class Settings(BaseSettings):
     # Redis
     redis_url: str = "redis://localhost:6379/0"
 
-    # AWS / Cloudflare R2
+    # Object storage — AWS S3 / Cloudflare R2 / MinIO / Garage
+    # S3_PROVIDER controls behaviour for ACLs and URL building:
+    #   "aws"    — AWS S3 (virtual-hosted URLs, ACL support)
+    #   "r2"     — Cloudflare R2 (no ACL, virtual-hosted via custom domain)
+    #   "minio"  — MinIO self-hosted (path-style, bucket-policy public access)
+    #   "garage" — Garage self-hosted (path-style, no ACL header support)
+    s3_provider: str = "minio"          # aws | r2 | minio | garage
     s3_bucket_name: str = "solo-agent-files"
     s3_region: str = "us-east-1"
     aws_access_key_id: str = ""
     aws_secret_access_key: str = ""
-    s3_endpoint_url: str = ""
+    s3_endpoint_url: str = "http://minio:9000"   # MinIO/Garage API endpoint
+    # Base URL used to build public object links.
+    # MinIO (direct):  http://localhost:9000/solo-agent-files
+    # MinIO (nginx):   https://files.yourdomain.com
+    # Garage web:      http://localhost:3902
+    # Leave blank → auto-built from s3_endpoint_url or AWS/R2 pattern.
+    s3_public_url_base: str = ""
+    # Set False for local MinIO/Garage without TLS certificates
+    s3_verify_ssl: bool = True
 
     # Gmail
     gmail_client_id: str = ""
